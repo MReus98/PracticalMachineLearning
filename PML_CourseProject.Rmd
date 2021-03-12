@@ -1,0 +1,102 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Marieke Reus"
+date: "11-3-2021"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+ 
+This project analyzes data from accelerometers. The goal of the project is to predict the manner in which subjects did an exercise (the "classe" variable) with a prediction model.
+
+
+## Data preprocessing
+First, the required packages were loaded and the training and test data was read into R.
+```{r}
+# Load packages
+library(caret)
+
+# Read data into R
+training_data <- read.csv("pml-training.csv")
+test_data <- read.csv("pml-testing.csv")
+```
+
+The seed was set to account for reproducibility. The training data was split into a training and test set.
+```{r}
+# Split the training data into a training and test set
+set.seed(123)
+inTrain <- createDataPartition(training_data$classe, p=0.6, list=FALSE)
+train <- training_data[inTrain, ]
+test <- training_data[-inTrain, ]
+```
+
+The unnecessary variables from the datasets were removed. Those are variables with nearly zero variance, variables that are mostly NA, and variables used for ID purposes.
+```{r}
+# Remove variables with nearly zero variance
+NZV <- nearZeroVar(train)
+train <- train[, -NZV]
+test <- test[, -NZV]
+
+# Remove variables that are mostly NA
+NAvar <- colMeans(is.na(train)) > 0.95
+train <- train[, NAvar==FALSE]
+test <- test[, NAvar==FALSE]
+
+# Remove variables that are used for ID purposes and do not make sense to use for prediction (X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp)
+train <- train[, -(1:5)]
+test <- test[, -(1:5)]
+```
+
+
+## Prediction Models
+Two different prediction models (decision tree and random forest) were fitted on the training set and their performance on the test set was evaluated with a confusion matrix.
+
+### Decision Tree
+A decision tree model was fitted on the training set, with 3-fold cross-validation.
+```{r}
+# Fit a decision tree model on the training set
+controlDT <- trainControl(method="cv", number=3, verboseIter=FALSE)
+fitDT <- train(classe ~ ., data=train, method="rpart", trControl=controlDT)
+fitDT$finalModel
+```
+
+The decision tree model was used to predict the classe variable of the test set and the performance of the model was evaluated with the confusion matrix.
+```{r}
+# Predict classe in the test set
+predictDT <- predict(fitDT, newdata=test)
+
+# Calculate the confusion matrix
+confusionMatrix(predictDT, factor(test$classe))
+```
+The accuracy of the decision tree model is 0.6006, so the expected out of sample error is 0.3994.
+
+### Random Forest
+A random forest model was fitted on the training set, with 3-fold cross-validation.
+```{r}
+# Fit a random forest model on the training set
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+fitRF <- train(classe ~ ., data=train, method="rf", trControl=controlRF)
+fitRF$finalModel
+```
+
+The random forest model was used to predict the classe variable of the test set and the performance of the model was evaluated with the confusion matrix.
+```{r}
+# Predict classe in the test set
+predictRF <- predict(fitRF, newdata=test)
+
+# Calculate the confusion matrix
+confusionMatrix(predictRF, factor(test$classe))
+```
+The accuracy of the random forest model is 0.9975, so the expected out of sample error is 0.0025.
+
+The best prediction model is thus the random forest model, with an accuracy of 0.9975 and an expected out of sample error of 0.0025.
+
+
+## Predictions
+The random forest model was used to predict the classe variable for the 20 cases in the test data.
+```{r}
+# Predict classe in the test data
+pred <- predict(fitRF, test_data)
+print(pred)
+```
